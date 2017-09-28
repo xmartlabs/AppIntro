@@ -80,6 +80,7 @@ public abstract class AppIntroBase extends AppCompatActivity implements
     private boolean isImmersiveModeSticky = false;
     private boolean areColorTransitionsEnabled = false;
     private int currentlySelectedItem = -1;
+    private boolean viewPagerDragPermissionRequest = false;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -893,7 +894,7 @@ public abstract class AppIntroBase extends AppCompatActivity implements
         }
     }
 
-    private void changeSlide(boolean isLastSlide){
+    private void changeSlide(boolean isLastSlide) {
         if (isLastSlide) {
             Fragment currentFragment = mPagerAdapter.getItem(pager.getCurrentItem());
             handleSlideChanged(currentFragment, null);
@@ -905,18 +906,16 @@ public abstract class AppIntroBase extends AppCompatActivity implements
     }
 
     // Returns true if a permission has been requested
-    private boolean checkAndRequestPermissions(){
+    private boolean checkAndRequestPermissions() {
         if (!permissionsArray.isEmpty()) {
             boolean requestPermission = false;
             int permissionPosition = 0;
 
-            //noinspection LoopStatementThatDoesntLoop
-            for (int i = 0; i < permissionsArray.size(); i++) {
-                requestPermission =
-                        pager.getCurrentItem() + 1 == permissionsArray.get(i).getPosition();
+            for (int i = 0; i < permissionsArray.size() && !requestPermission; i++) {
+                requestPermission = pager.getCurrentItem() + 1 == permissionsArray.get(i).getPosition();
                 permissionPosition = i;
-                break;
             }
+
             if (requestPermission) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     requestPermissions(permissionsArray.get(permissionPosition).getPermission(),
@@ -931,7 +930,7 @@ public abstract class AppIntroBase extends AppCompatActivity implements
         return false;
     }
 
-    private void updatePagerIndicatorState(){
+    private void updatePagerIndicatorState() {
         if (indicatorContainer != null) {
             if (pagerIndicatorEnabled) {
                 indicatorContainer.setVisibility(View.VISIBLE);
@@ -948,7 +947,6 @@ public abstract class AppIntroBase extends AppCompatActivity implements
             } else {
                 PermissionObject permission = new PermissionObject(permissions, slidesNumber);
                 permissionsArray.add(permission);
-                setSwipeLock(true);
             }
         }
     }
@@ -959,11 +957,14 @@ public abstract class AppIntroBase extends AppCompatActivity implements
 
         switch (requestCode) {
             case PERMISSIONS_REQUEST_ALL_PERMISSIONS:
-                // Check if next slide is the last one
-                if (pager.getCurrentItem()+1 == slidesNumber) {
-                    changeSlide(true);
-                } else {
-                    changeSlide(false);
+                if (!viewPagerDragPermissionRequest) {
+                    viewPagerDragPermissionRequest = false;
+                    // Check if next slide is the last one
+                    if (pager.getCurrentItem() + 1 == slidesNumber) {
+                        changeSlide(true);
+                    } else {
+                        changeSlide(false);
+                    }
                 }
                 break;
             default:
@@ -1065,7 +1066,11 @@ public abstract class AppIntroBase extends AppCompatActivity implements
 
         @Override
         public void onPageScrollStateChanged(int state) {
-
+            if (state == ViewPager.SCROLL_STATE_DRAGGING) {
+                if (checkAndRequestPermissions()) {
+                    viewPagerDragPermissionRequest = true;
+                }
+            }
         }
     }
 
